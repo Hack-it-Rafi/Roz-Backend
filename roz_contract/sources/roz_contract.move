@@ -8,8 +8,8 @@ module roz_sui_contracts::roz_sui_contracts {
 
     const ContractWallet: address = @0x1;
     const EInsufficientFunds: u64 = 1;
-    const EJOBISDONE: u64 = 2;
-    const EINVALIDACTION: u64 = 3;
+    const EJobIsDone: u64 = 2;
+    const EInvalidAction: u64 = 3;
 
     public struct Bidder has store {
         uid: UID,
@@ -18,7 +18,6 @@ module roz_sui_contracts::roz_sui_contracts {
         cv_link: String,
         staked_asset: Balance<SUI>
     }
-
 
     public struct Agent has key {
         id: UID,
@@ -32,19 +31,19 @@ module roz_sui_contracts::roz_sui_contracts {
         bidders:  Table<ID, Bidder>,
         bidder_keys: vector<ID>,
         assigned_to: Option<ID>,
-        aggrement_url: String,
+        agreement_url: String,
         fee: Balance<SUI>,
         is_complete: bool,
         is_agent_action: bool
     }
 
-    public struct Joblist has key, store {
+    public struct JobList has key, store {
         id: UID,
         list: Table<ID, Job>
     }
     
     fun init(ctx: &mut sui::tx_context::TxContext) {
-        let job_list = Joblist { 
+        let job_list = JobList { 
             id: object::new(ctx), 
             list: table::new(ctx) 
             };
@@ -62,7 +61,7 @@ module roz_sui_contracts::roz_sui_contracts {
         title: String, 
         description: String,
         fee_amount: u64,
-        joblist: &mut Joblist,
+        job_list: &mut JobList,
         staked_fee_object: Coin<SUI>,
         ctx: &mut TxContext
     ){
@@ -79,12 +78,12 @@ module roz_sui_contracts::roz_sui_contracts {
                 bidders:  table::new(ctx),
                 bidder_keys: vector::empty(),
                 assigned_to: option::none(),
-                aggrement_url: utf8(b"Not assigned"),
+                agreement_url: utf8(b"Not assigned"),
                 fee: user_asset,
                 is_complete: false,
                 is_agent_action: true
             };
-            table::add(&mut joblist.list, base_id, new_job);
+            table::add(&mut job_list.list, base_id, new_job);
     }
 
 
@@ -92,7 +91,7 @@ module roz_sui_contracts::roz_sui_contracts {
         _agent: &Agent,
         self_bidder: bool,
         job_id: ID,
-        job_list: &mut Joblist,
+        job_list: &mut JobList,
         ctx: &mut TxContext
     ) {
         let job = table::borrow_mut(&mut job_list.list, job_id);
@@ -108,7 +107,7 @@ module roz_sui_contracts::roz_sui_contracts {
 
     public fun apply_to_job(
         job_id: ID,
-        job_list: &mut Joblist,
+        job_list: &mut JobList,
         bidder_overview: String,
         bidder_cv_link: String,
         bidder_asset: Coin<SUI>,
@@ -118,9 +117,9 @@ module roz_sui_contracts::roz_sui_contracts {
         let base_id = *object::uid_as_inner(&uid);
         let job = table::borrow_mut(&mut job_list.list, job_id);
         assert!(coin::value(&bidder_asset) >= balance::value(&job.fee), EInsufficientFunds);
-        assert!(job.is_agent_action == false, EINVALIDACTION);
+        assert!(job.is_agent_action == false, EInvalidAction);
         let asset: Balance<SUI> = coin::into_balance(bidder_asset);
-        assert!(job.is_complete == false, EJOBISDONE);
+        assert!(job.is_complete == false, EJobIsDone);
         let new_bidder = Bidder {
             uid,
             wallet: tx_context::sender(ctx),
@@ -135,24 +134,24 @@ module roz_sui_contracts::roz_sui_contracts {
     public fun assign_job(
         _agent: &Agent,
         job_id: ID,
-        job_list: &mut Joblist,
-        aggrement_url: String,
+        job_list: &mut JobList,
+        agreement_url: String,
         bidder_id: ID
     ) {
         let job = table::borrow_mut(&mut job_list.list, job_id);
-        assert!(job.is_complete == false, EJOBISDONE);
+        assert!(job.is_complete == false, EJobIsDone);
         job.assigned_to = option::some(bidder_id);
-        job.aggrement_url = aggrement_url;
+        job.agreement_url = agreement_url;
     }
 
     public fun complete_job(
         _agent: &Agent,
         job_id: ID,
-        job_list: &mut Joblist,
+        job_list: &mut JobList,
         ctx: &mut TxContext
     ) {
         let job = table::borrow_mut(&mut job_list.list, job_id);
-        assert!(job.is_complete == false, EJOBISDONE);
+        assert!(job.is_complete == false, EJobIsDone);
 
         let employer = option::extract(&mut job.assigned_to);
         let bidder_details = table::borrow_mut( &mut job.bidders, employer); 
